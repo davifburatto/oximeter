@@ -4,6 +4,15 @@
  * Wirte by  Lewis he , 2020
  */
 
+/*
+segue fluxo normal do programa
+coloca inicio de captura de oxigenacao e sensores na segunda pagina
+sensor max usa SPI. SPI.start nao usar Wire.start
+apertando o botao novamente a captura para e volta par ao menu de relogio
+
+
+*/
+
 #include <ArduinoOTA.h>
 #include <Wire.h>
 #include <WiFi.h>
@@ -42,7 +51,7 @@
 #define  HEATRATE_SCL            13
 #define  HEATRATE_INT            4
 
-#define  ARDUINO_OTA_UPDATE      //! Enable this line use OTA update
+//#define  ARDUINO_OTA_UPDATE      //! Enable this line use OTA update
 
 #define  WIFI_SSID               "Xiaomi"
 #define  WIFI_PASSWD             "12345678"
@@ -408,7 +417,7 @@ bool setupRTC(void)
 void clickHandle(void)
 {
     func_select++;
-    func_select = func_select % 3;
+    func_select = func_select % 4; //davi % 3
     if (func_select == 0) {
         initial = 1;
         targetTime = 0;
@@ -564,7 +573,7 @@ void page1()
 }
 
 void loop()
-{
+{ 
     loopOTA();
     button.tick();
     switch (func_select) {
@@ -580,6 +589,10 @@ void loop()
     case 2:
         loopMAX30105();
         break;
+    case 3:
+        ESP.restart();
+        break;
+        
     default:
         break;
     }
