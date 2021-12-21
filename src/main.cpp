@@ -22,11 +22,14 @@ apertando o botao novamente a captura para e volta par ao menu de relogio
 #include <OneButton.h>
 #include <pcf8563.h>
 
-#include "MAX30105.h"
+
 #include "MPU6050.h"
 #include "heartRate.h"
 #include "esp_adc_cal.h"
 #include "image.h"
+#include <max32664.h>
+#include <SPI.h>
+#include <mySD.h>
 
 
 // Has been defined in the TFT_eSPI library
@@ -47,9 +50,9 @@ apertando o botao novamente a captura para e volta par ao menu de relogio
 #define  CHARGE_PIN              32
 #define  BUTTON_PIN              38
 #define  MPU_INT                 39
-#define  HEATRATE_SDA            15
-#define  HEATRATE_SCL            13
-#define  HEATRATE_INT            4
+#define  RESET_PIN               2
+#define  MFIO_PIN                4
+#define  RAWDATA_BUFFLEN         250
 
 //#define  ARDUINO_OTA_UPDATE      //! Enable this line use OTA update
 
@@ -62,7 +65,11 @@ TFT_eSPI    tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
 PCF8563_Class rtc;
 MPU6050     mpu;
 OneButton   button(BUTTON_PIN, true);
-MAX30105    particleSensor;
+max32664 MAX32664(RESET_PIN, MFIO_PIN, RAWDATA_BUFFLEN);
+//sdcard
+File myFile;
+const int chipSelect = 5;
+
 
 bool        freefallDetected = false;
 int         freefallBlinkCount = 0;
@@ -78,6 +85,16 @@ int         vref = 1100;
 bool        charge_indication = false;
 uint8_t     hh, mm, ss ;
 
+/*MAX32664*/
+float systol;
+float diastol;
+float heart;
+float oxig;
+String dataMessage;
+unsigned long tseconds; 
+unsigned long lastTimebmp = 0;
+unsigned long timerDelaybmp = 100;
+
 /*MAX30105*/
 const uint8_t RATE_SIZE = 4; //Increase this for more averaging. 4 is good.
 uint8_t     rates[RATE_SIZE]; //Array of heart rates
@@ -91,16 +108,97 @@ bool        showError = false;
 void drawProgressBar(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint8_t percentage, uint16_t frameColor, uint16_t barColor);
 void enterDeepsleep(void);
 
+void initSDCard(){
+Serial.print("Initializing Micro SD card...");
+  // open the file. note that only one file can be open at a time,
+  // so you have to close this one before opening another.
+  myFile = SD.open("data.txt", F_WRITE);
+    // if the file opened okay, write to it:
+  if (myFile) {
+    Serial.print("Writing to data.txt...");
+    myFile.println("Data collection begin.");
+    myFile.println("Millis; Systolic; Diastolic; Heart Rate; SPO2");
+	// close the file:
+    myFile.close();
+    Serial.println("done.");
+  } else {
+    // if the file didn't open, print an error:
+    Serial.println("error opening data.txt");
+  }
+  
+}
+
+void mfioInterruptHndlr(){
+  //Serial.println("i");
+}
+
+void enableInterruptPin(){
+
+  //pinMode(mfioPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(MAX32664.mfioPin), mfioInterruptHndlr, FALLING);
+
+}
+
+void loadAlgomodeParameters(){
+
+  algomodeInitialiser algoParameters;
+  /*  Replace the predefined values with the calibration values taken with a reference spo2 device in a controlled environt.
+      Please have a look here for more information, https://pdfserv.maximintegrated.com/en/an/an6921-measuring-blood-pressure-MAX32664D.pdf
+      https://github.com/Protocentral/protocentral-pulse-express/blob/master/docs/SpO2-Measurement-Maxim-MAX32664-Sensor-Hub.pdf
+  */
+
+  algoParameters.calibValSys[0] = 120;
+  algoParameters.calibValSys[1] = 122;
+  algoParameters.calibValSys[2] = 125;
+
+  algoParameters.calibValDia[0] = 80;
+  algoParameters.calibValDia[1] = 81;
+  algoParameters.calibValDia[2] = 82;
+
+  algoParameters.spo2CalibCoefA = 1.5958422;
+  algoParameters.spo2CalibCoefB = -34.659664;
+  algoParameters.spo2CalibCoefC = 112.68987;
+
+  MAX32664.loadAlgorithmParameters(&algoParameters);
+}
+
+
 bool setupMAX30105(void)
 {
     // Initialize sensor
-    if (!particleSensor.begin(Wire1, 400000)) { //Use default I2C port, 400kHz speed
+	loadAlgomodeParameters();
+	int result = MAX32664.hubBegin();
+		
+    if (!result == CMD_SUCCESS) { //Use default I2C port, 400kHz speed
         Serial.println("MAX30105 was not found");
         return false;
     }
-    particleSensor.setup(); //Configure sensor with default settings
-    particleSensor.setPulseAmplitudeRed(0x0A); //Turn Red LED to low to indicate sensor is running
-    particleSensor.setPulseAmplitudeGreen(0); //Turn off Green LED
+    //Mantenha o dedo pressionado
+    tft.setTextColor(TFT_YELLOW);
+    tft.println("Mantenha o dedo - Calib");
+    tft.setTextColor(TFT_GREEN);
+    bool ret = MAX32664.startBPTcalibration();
+    while(!ret){
+
+    delay(10000);
+    Serial.println("failed calib, please restart");
+    //ret = MAX32664.startBPTcalibration();
+  }
+
+  delay(2000);
+
+  //Serial.println("start in estimation mode");
+  ret = MAX32664.configAlgoInEstimationMode();
+  while(!ret){
+
+    //Serial.println("failed est mode");
+    ret = MAX32664.configAlgoInEstimationMode();
+    delay(2000);
+  }
+
+  //MAX32664.enableInterruptPin();
+  Serial.println("Getting the device ready..");
+  delay(1000);
     find_max30105 = true;
     return true;
 }
@@ -118,40 +216,73 @@ void loopMAX30105(void)
         return;
     }
 
-    long irValue = particleSensor.getIR();
+    uint8_t num_samples = MAX32664.readSamples();
 
-    if (checkForBeat(irValue) == true) {
-        //We sensed a beat!
-        long delta = millis() - lastBeat;
-        lastBeat = millis();
+      if(num_samples){
 
-        beatsPerMinute = 60 / (delta / 1000.0);
-
-        if (beatsPerMinute < 255 && beatsPerMinute > 20) {
-            rates[rateSpot++] = (uint8_t)beatsPerMinute; //Store this reading in the array
-            rateSpot %= RATE_SIZE; //Wrap variable
-
-            //Take average of readings
-            beatAvg = 0;
-            for (uint8_t x = 0 ; x < RATE_SIZE ; x++)
-                beatAvg += rates[x];
-            beatAvg /= RATE_SIZE;
-        }
+        Serial.print("sys = ");
+        Serial.print(MAX32664.max32664Output.sys);
+        Serial.print(", dia = ");
+        Serial.print(MAX32664.max32664Output.dia);
+        Serial.print(", hr = ");
+        Serial.print(MAX32664.max32664Output.hr);
+        Serial.print(" spo2 = ");
+        Serial.println(MAX32664.max32664Output.spo2);
     }
+
+    delay(100);
 
     if (targetTime < millis()) {
         tft.fillScreen(TFT_BLACK);
-        snprintf(buff, sizeof(buff), "IR=%lu BPM=%.2f", irValue, beatsPerMinute);
+        snprintf(buff, sizeof(buff), "Sys=%d Dia=%.2d", MAX32664.max32664Output.sys, MAX32664.max32664Output.dia);
         tft.drawString(buff, 0, 0);
-        snprintf(buff, sizeof(buff), "Avg BPM=%d", beatAvg);
+        snprintf(buff, sizeof(buff), "HR=%d SPO=%.2f", MAX32664.max32664Output.hr, MAX32664.max32664Output.spo2);
         tft.drawString(buff, 0, 16);
         targetTime += 1000;
     }
-    if (irValue < 50000 ) {
-        digitalWrite(LED_PIN, LOW);
-    } else {
-        digitalWrite(LED_PIN, !digitalRead(LED_PIN));
-    }
+
+    //measureTime += 100; //delay 100ms
+
+    //////write sd
+    if ((millis() - lastTimebmp) > timerDelaybmp) { //reading every 200ms
+    tseconds = millis();
+      ///get MAX32664 reading 
+    uint8_t num_samples = MAX32664.readSamples();
+    if(num_samples==0) Serial.println("MAX32664 - No samples to read");
+    systol = MAX32664.max32664Output.sys;
+    diastol = MAX32664.max32664Output.dia;
+    heart = MAX32664.max32664Output.hr;
+    oxig = MAX32664.max32664Output.spo2;
+    dataMessage = String(tseconds) + ";" + String(systol) +";"+ String(diastol) +";"+ String(heart) +";"+ String(oxig) + "\r\n";
+
+
+    SD.begin(5,23,19,18);
+    //Append the data to file
+    myFile = SD.open("data.txt", F_WRITE);
+    Serial.println("DEBUG: SD.OPEN");
+    // if the file opened okay, write to it:
+    if (myFile) 
+        {
+        Serial.println("DEBUG: PASSOU SD.OPEN");
+        Serial.println("Saving data: ");
+        Serial.println("Millis;Syst;Dias;HR;SPO2 ");
+        Serial.println(dataMessage);
+        Serial.println("DEBUG: INICIA GRAVACAO");
+        myFile.println("Start Writting");
+        myFile.println(dataMessage.c_str());
+        myFile.println("Done Writting");
+	    // close the file:
+        myFile.close();
+        Serial.println("DEBUG: SD.CLOSE");
+        Serial.println("Done Writting.");
+        }    
+    else {
+        // if the file didn't open, print an error:
+        Serial.println("error opening data.txt");
+        }
+
+ lastTimebmp = millis();
+    }//end write
 }
 
 void checkSettings(void)
@@ -434,6 +565,13 @@ void setup(void)
 {
     Serial.begin(115200);
 
+    pinMode(SS, OUTPUT);
+if (!SD.begin(5,23,19,18)) {
+    Serial.println("SD initialization failed!");
+    return;
+  }
+  Serial.println("SD initialization done.");
+    initSDCard();
 
     tft.init();
     tft.setRotation(1);
@@ -443,7 +581,7 @@ void setup(void)
 
     pinMode(LED_PIN, OUTPUT);
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-    Wire1.begin(HEATRATE_SDA, HEATRATE_SCL);
+    
 
     button.attachClick(clickHandle);
     button.attachDoubleClick(enterDeepsleep);
