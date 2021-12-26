@@ -29,7 +29,7 @@ apertando o botao novamente a captura para e volta par ao menu de relogio
 #include "image.h"
 #include <max32664.h>
 #include <SPI.h>
-#include <mySD.h>
+#include <mySD_mod.h>
 
 
 // Has been defined in the TFT_eSPI library
@@ -112,13 +112,14 @@ void initSDCard(){
 Serial.print("Initializing Micro SD card...");
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
-  myFile = SD.open("data.txt", F_WRITE);
+  myFile = SD.open("test.txt", FILE_WRITE);
     // if the file opened okay, write to it:
   if (myFile) {
     Serial.print("Writing to data.txt...");
     myFile.println("Data collection begin.");
     myFile.println("Millis; Systolic; Diastolic; Heart Rate; SPO2");
-	// close the file:
+	myFile.flush();
+    // close the file:
     myFile.close();
     Serial.println("done.");
   } else {
@@ -166,45 +167,51 @@ void loadAlgomodeParameters(){
 bool setupMAX30105(void)
 {
     // Initialize sensor
-	loadAlgomodeParameters();
 	int result = MAX32664.hubBegin();
 		
     if (!result == CMD_SUCCESS) { //Use default I2C port, 400kHz speed
-        Serial.println("MAX30105 was not found");
+    tft.setTextColor(TFT_GREEN);
+    tft.println("MAX32664 was not found");
         return false;
     }
     //Mantenha o dedo pressionado
-    tft.setTextColor(TFT_YELLOW);
-    tft.println("Mantenha o dedo - Calib");
     tft.setTextColor(TFT_GREEN);
-    bool ret = MAX32664.startBPTcalibration();
-    while(!ret){
-
-    delay(10000);
-    Serial.println("failed calib, please restart");
-    //ret = MAX32664.startBPTcalibration();
-  }
-
-  delay(2000);
-
-  //Serial.println("start in estimation mode");
-  ret = MAX32664.configAlgoInEstimationMode();
-  while(!ret){
-
-    //Serial.println("failed est mode");
-    ret = MAX32664.configAlgoInEstimationMode();
-    delay(2000);
-  }
-
-  //MAX32664.enableInterruptPin();
-  Serial.println("Getting the device ready..");
-  delay(1000);
+    tft.println("MAX32664 - OK");
+    tft.setTextColor(TFT_GREEN);
     find_max30105 = true;
     return true;
 }
 
 void loopMAX30105(void)
-{
+{       // Initialize sensor
+	loadAlgomodeParameters();
+	int result = MAX32664.hubBegin();
+		
+    if (!result == CMD_SUCCESS) { //Use default I2C port, 400kHz speed
+        Serial.println("MAX30105 was not found");
+    }
+    //Mantenha o dedo pressionado
+    Serial.println("Mantenha o dedo - Calib");
+    bool ret = MAX32664.startBPTcalibration();
+    while(!ret){
+    delay(10000);
+    Serial.println("failed calib, please restart");
+
+  }
+
+  delay(2000);
+
+Serial.println("start in estimation mode");
+  ret = MAX32664.configAlgoInEstimationMode();
+  while(!ret){
+
+Serial.println("failed est mode");
+    ret = MAX32664.configAlgoInEstimationMode();
+    delay(2000);
+  }
+
+
+    
     if (!find_max30105 && !showError) {
         tft.fillScreen(TFT_BLACK);
         tft.drawString("No detected sensor", 20, 30);
@@ -256,9 +263,9 @@ void loopMAX30105(void)
     dataMessage = String(tseconds) + ";" + String(systol) +";"+ String(diastol) +";"+ String(heart) +";"+ String(oxig) + "\r\n";
 
 
-    SD.begin(5,23,19,18);
+   
     //Append the data to file
-    myFile = SD.open("data.txt", F_WRITE);
+    myFile = SD.open("data.txt", FILE_WRITE);
     Serial.println("DEBUG: SD.OPEN");
     // if the file opened okay, write to it:
     if (myFile) 
@@ -271,6 +278,7 @@ void loopMAX30105(void)
         myFile.println("Start Writting");
         myFile.println(dataMessage.c_str());
         myFile.println("Done Writting");
+         myFile.flush();
 	    // close the file:
         myFile.close();
         Serial.println("DEBUG: SD.CLOSE");
@@ -566,8 +574,9 @@ void setup(void)
     Serial.begin(115200);
 
     pinMode(SS, OUTPUT);
-if (!SD.begin(5,23,19,18)) {
-    Serial.println("SD initialization failed!");
+
+  if (!SD.begin(26, 14, 13, 27)) {
+    Serial.println("initialization failed!");
     return;
   }
   Serial.println("SD initialization done.");

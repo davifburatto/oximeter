@@ -10,7 +10,7 @@
 #define TFT_SCLK            18
 #define TFT_CS              5
 #define TFT_DC              23
-#define TFT_BL              27  // Dispaly backlight control pin
+#define TFT_BL              15//27  // Display backlight control pin *davi
 
 #define TFT_BACKLIGHT_ON HIGH  // HIGH or LOW are options
 

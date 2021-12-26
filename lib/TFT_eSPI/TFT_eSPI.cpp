@@ -413,16 +413,16 @@ void TFT_eSPI::init(uint8_t tc)
 
   setRotation(rotation);
 
-#if defined (TFT_BL) && defined (TFT_BACKLIGHT_ON)
-  pinMode(TFT_BL, OUTPUT);
-  digitalWrite(TFT_BL, TFT_BACKLIGHT_ON);
-#else
-  #if defined (TFT_BL) && defined (M5STACK)
+//#if defined (TFT_BL) && defined (TFT_BACKLIGHT_ON)
+//  pinMode(TFT_BL, OUTPUT);
+//  digitalWrite(TFT_BL, TFT_BACKLIGHT_ON);
+//#else
+//  #if defined (TFT_BL) && defined (M5STACK)
     // Turn on the back-light LED
-    pinMode(TFT_BL, OUTPUT);
-    digitalWrite(TFT_BL, HIGH);
-  #endif
-#endif
+//    pinMode(TFT_BL, OUTPUT);
+//    digitalWrite(TFT_BL, HIGH);
+//  #endif
+//#endif
 }
 
 
