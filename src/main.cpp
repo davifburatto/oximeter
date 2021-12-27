@@ -70,7 +70,7 @@ max32664 MAX32664(RESET_PIN, MFIO_PIN, RAWDATA_BUFFLEN);
 File myFile;
 const int chipSelect = 5;
 
-
+bool        nocal=0;
 bool        freefallDetected = false;
 int         freefallBlinkCount = 0;
 char        buff[256];
@@ -112,7 +112,7 @@ void initSDCard(){
 Serial.print("Initializing Micro SD card...");
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
-  myFile = SD.open("test.txt", FILE_WRITE);
+  myFile = SD.open("data.txt", FILE_WRITE);
     // if the file opened okay, write to it:
   if (myFile) {
     Serial.print("Writing to data.txt...");
@@ -163,53 +163,29 @@ void loadAlgomodeParameters(){
   MAX32664.loadAlgorithmParameters(&algoParameters);
 }
 
-
-bool setupMAX30105(void)
-{
-    // Initialize sensor
-	int result = MAX32664.hubBegin();
-		
-    if (!result == CMD_SUCCESS) { //Use default I2C port, 400kHz speed
-    tft.setTextColor(TFT_GREEN);
-    tft.println("MAX32664 was not found");
-        return false;
-    }
-    //Mantenha o dedo pressionado
-    tft.setTextColor(TFT_GREEN);
-    tft.println("MAX32664 - OK");
-    tft.setTextColor(TFT_GREEN);
-    find_max30105 = true;
-    return true;
-}
-
-void loopMAX30105(void)
+void startnewcalib(void)
 {       // Initialize sensor
 	loadAlgomodeParameters();
 	int result = MAX32664.hubBegin();
 		
-    if (!result == CMD_SUCCESS) { //Use default I2C port, 400kHz speed
-        Serial.println("MAX30105 was not found");
-    }
     //Mantenha o dedo pressionado
     Serial.println("Mantenha o dedo - Calib");
     bool ret = MAX32664.startBPTcalibration();
     while(!ret){
-    delay(10000);
+    delay(1000);//10000
     Serial.println("failed calib, please restart");
-
-  }
+    }
 
   delay(2000);
 
-Serial.println("start in estimation mode");
-  ret = MAX32664.configAlgoInEstimationMode();
-  while(!ret){
+    Serial.println("start in estimation mode");
+    ret = MAX32664.configAlgoInEstimationMode();
+    while(!ret){
 
-Serial.println("failed est mode");
+    Serial.println("failed est mode");
     ret = MAX32664.configAlgoInEstimationMode();
     delay(2000);
   }
-
 
     
     if (!find_max30105 && !showError) {
@@ -223,8 +199,32 @@ Serial.println("failed est mode");
         return;
     }
 
-    uint8_t num_samples = MAX32664.readSamples();
 
+}
+
+
+bool setupMAX30105(void)
+{
+    // Initialize sensor
+	int result = CMD_SUCCESS;
+		
+    if (!result == CMD_SUCCESS) { //Use default I2C port, 400kHz speed
+    tft.setTextColor(TFT_GREEN);
+    tft.println("MAX32664 was not found");
+        return false;
+    }
+    tft.setTextColor(TFT_GREEN);
+    tft.println("MAX32664 - OK");
+    tft.setTextColor(TFT_GREEN);
+    find_max30105 = true;
+    return true;
+}
+
+void loopMAX30105(void)
+{
+
+ //   uint8_t num_samples = MAX32664.readSamples();
+/* 
       if(num_samples){
 
         Serial.print("sys = ");
@@ -236,10 +236,10 @@ Serial.println("failed est mode");
         Serial.print(" spo2 = ");
         Serial.println(MAX32664.max32664Output.spo2);
     }
-
+ */
     delay(100);
 
-    if (targetTime < millis()) {
+     if (targetTime < millis()) {
         tft.fillScreen(TFT_BLACK);
         snprintf(buff, sizeof(buff), "Sys=%d Dia=%.2d", MAX32664.max32664Output.sys, MAX32664.max32664Output.dia);
         tft.drawString(buff, 0, 0);
@@ -261,27 +261,30 @@ Serial.println("failed est mode");
     heart = MAX32664.max32664Output.hr;
     oxig = MAX32664.max32664Output.spo2;
     dataMessage = String(tseconds) + ";" + String(systol) +";"+ String(diastol) +";"+ String(heart) +";"+ String(oxig) + "\r\n";
-
+    //write to display
+    
+/*     tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.fillScreen(TFT_BLACK);
+    snprintf(buff, sizeof(buff), "Sys=%f Dia=%.2f",systol,diastol);
+    tft.drawString(buff, 0, 0);
+    snprintf(buff, sizeof(buff), "HR=%f SPO=%.2f",heart,oxig);
+    tft.drawString(buff, 0, 16); */
 
    
     //Append the data to file
     myFile = SD.open("data.txt", FILE_WRITE);
-    Serial.println("DEBUG: SD.OPEN");
+    //Serial.println("DEBUG: SD.OPEN");
     // if the file opened okay, write to it:
     if (myFile) 
         {
-        Serial.println("DEBUG: PASSOU SD.OPEN");
-        Serial.println("Saving data: ");
+        
         Serial.println("Millis;Syst;Dias;HR;SPO2 ");
         Serial.println(dataMessage);
-        Serial.println("DEBUG: INICIA GRAVACAO");
-        myFile.println("Start Writting");
         myFile.println(dataMessage.c_str());
-        myFile.println("Done Writting");
-         myFile.flush();
+        myFile.flush();
 	    // close the file:
         myFile.close();
-        Serial.println("DEBUG: SD.CLOSE");
+  
         Serial.println("Done Writting.");
         }    
     else {
@@ -556,7 +559,7 @@ bool setupRTC(void)
 void clickHandle(void)
 {
     func_select++;
-    func_select = func_select % 4; //davi % 3
+    func_select = func_select % 3; //davi % 3
     if (func_select == 0) {
         initial = 1;
         targetTime = 0;
@@ -725,20 +728,27 @@ void loop()
     button.tick();
     switch (func_select) {
     case 0:
+        nocal=0;
         page1();
         break;
     case 1:
+        nocal=0;
         if (targetTime < millis()) {
             targetTime += 200;
             loopIMU();
         }
         break;
     case 2:
+        if(nocal==0) {
+            startnewcalib();
+            nocal=1;
+            }
         loopMAX30105();
+        button.tick();
         break;
-    case 3:
-        ESP.restart();
-        break;
+//    case 3:
+        //ESP.restart();
+//        break;
         
     default:
         break;
