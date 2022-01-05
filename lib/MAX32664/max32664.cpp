@@ -680,6 +680,9 @@ bool max32664::startBPTcalibration(){
   while(bpStatus != 2 && (max32664Output.progress != 100) ){ //bpStatus, 0x02 == success
 
     bpStatus = readCalibSamples();
+    //debug status
+    
+    
     delay(1000);
 
     if(bpStatus == 05){
