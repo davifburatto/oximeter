@@ -34,7 +34,7 @@ PCF8563_Class rtc;
 MPU6050     mpu;
 OneButton   button(BUTTON_PIN, true);
 max32664 MAX32664(RESET_PIN, MFIO_PIN, RAWDATA_BUFFLEN);
-sensorhubData Sensorhub;
+
 //sdcard
 File myFile;
 const int chipSelect = 5;
@@ -186,13 +186,10 @@ void startnewcalib(void)
     tft.drawString("Insert Finger", 20, 30);
     Serial.println("Mantenha o dedo - Calib");
     
-    //calib_lvl = MAX32664.startBPTcalibration(); //max32664 calibration
-    
     bool ret = MAX32664.startBPTcalibration(); //max32664 calibration
-    
-    calib_lvl = Sensorhub.progress;
     tft.drawString("Progress=", 20, 40);
-    tft.print(calib_lvl);
+    tft.printf(MAX32664.calib_level);
+    tft.print(MAX32664.calib_level);
     
 
     while(!ret){

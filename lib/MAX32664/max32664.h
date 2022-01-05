@@ -73,6 +73,7 @@ class max32664
   public:
     sensorhubData max32664Output;
 
+    uint8_t calib_level();
     uint8_t readSamples( );
     uint8_t readCalibSamples();
     bool configAlgoInEstimationMode();
