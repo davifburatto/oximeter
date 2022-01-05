@@ -157,7 +157,7 @@
 #endif
 
 
-// These are the pins for ESP8266 boards
+/* // These are the pins for ESP8266 boards
 //      Name   GPIO    NodeMCU      Function
 #define PIN_D0  16  // GPIO16       WAKE
 #define PIN_D1   5  // GPIO5        User purpose
@@ -178,3 +178,4 @@
 
 #define PIN_D11  9  // SD2
 #define PIN_D12 10  // SD4
+ */

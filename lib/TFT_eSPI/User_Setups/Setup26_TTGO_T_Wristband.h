@@ -4,13 +4,13 @@
 #define TFT_HEIGHT 160
 
 
-#define TFT_RST             26   // Set TFT_RST to -1 if the display RESET is connected to NodeMCU RST or 3.3V
+#define TFT_RST             12//26   // Set TFT_RST to -1 if the display RESET is connected to NodeMCU RST or 3.3V *davi
 #define TFT_MISO            -1
 #define TFT_MOSI            19
 #define TFT_SCLK            18
 #define TFT_CS              5
 #define TFT_DC              23
-#define TFT_BL              15//27  // Display backlight control pin *davi
+//#define TFT_BL              15//27  // Display backlight control pin *davi
 
 #define TFT_BACKLIGHT_ON HIGH  // HIGH or LOW are options
 
