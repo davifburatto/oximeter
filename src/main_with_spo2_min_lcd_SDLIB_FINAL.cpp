@@ -187,10 +187,12 @@ void startnewcalib(void)
     Serial.println("Mantenha o dedo - Calib");
     
     bool ret = MAX32664.startBPTcalibration(); //max32664 calibration
+/*
+Calibration level status *davi
     tft.drawString("Progress=", 20, 40);
     tft.printf(MAX32664.calib_level);
     tft.print(MAX32664.calib_level);
-    
+     */
 
     while(!ret){
     delay(1000);//10000
