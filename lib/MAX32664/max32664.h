@@ -36,7 +36,7 @@
 
 #define SENSORHUB_ADDR  0x55
 #define CALIBVECTOR_SIZE  827
-#define  RAWDATA_BUFFLEN 200
+#define  RAWDATA_BUFFLEN 250 //200
 #define  ERR_UNKNOWN      0xff
 
 
@@ -73,7 +73,6 @@ class max32664
   public:
     sensorhubData max32664Output;
 
-    uint8_t calib_level();
     uint8_t readSamples( );
     uint8_t readCalibSamples();
     bool configAlgoInEstimationMode();

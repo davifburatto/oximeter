@@ -69,12 +69,7 @@
                                 4, 0, 3, 175, 170, 3, 33, 134, 0, 0, 0, 0, 15, 199, 2, 100, 3, 32, 0, 0, 3,
                                 207, 0, 4, 0, 3, 176, 22, 3, 33, 165, 0, 0, 0, 0, 15, 200, 2, 100, 3, 32, 0,
                                 0, 3, 207, 0, 4, 0, 3, 176, 102, 3};
-//*davi
 
-uint8_t max32664::calib_level(){
-    uint8_t lvl = max32664Output.progress;
-    return lvl;
-}
 
 uint8_t max32664::readSamples( ){
 
@@ -685,9 +680,6 @@ bool max32664::startBPTcalibration(){
   while(bpStatus != 2 && (max32664Output.progress != 100) ){ //bpStatus, 0x02 == success
 
     bpStatus = readCalibSamples();
-    //debug status
-    calib_level();
-        
     delay(1000);
 
     if(bpStatus == 05){
