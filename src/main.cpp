@@ -275,30 +275,31 @@ bool setupMAX30105(void)
 
 void loopMAX30105(void)
 {
-
+    //write sd
+    if ((millis() - lastTimebmp) > timerDelaybmp) { //reading every 200ms
+    tseconds = millis();
+   
+	///get MAX32664 reading 
     uint8_t num_samples = MAX32664.readSamples();
-
+	if(num_samples==0) Serial.println("MAX32664 - No samples to read");
       if(num_samples){
-        Serial.print("sys = ");
-        Serial.print(MAX32664.max32664Output.sys);
-        Serial.print(", dia = ");
-        Serial.print(MAX32664.max32664Output.dia);
-        Serial.print(", hr = ");
-        Serial.print(MAX32664.max32664Output.hr);
-        Serial.print(" spo2 = ");
-        Serial.println(MAX32664.max32664Output.spo2);
-        
-        /*
-        se num_samples é válido, significa que há dados para serem lidos
-        antes de dar printf, colocar os dados nas variaveis que vao ser juntadas na string
-        só dar printf.
-        depois, mudar a rotina de gravação para manter o arquivo aberto e só quando a interrupção do botão for acionada, fecha-lo.
-        */
-
+		systol = MAX32664.max32664Output.sys;
+		diastol = MAX32664.max32664Output.dia;
+		heart = MAX32664.max32664Output.hr;
+		oxig = MAX32664.max32664Output.spo2;  	
     }
+	  
 
-   // delay(100);
-
+    dataMessage = String(tseconds) + ";" + String(systol) +";"+ String(diastol) +";"+ String(heart) +";"+ String(oxig) + "\r\n";
+    //Append the data to file
+    Serial.println(dataMessage);
+    
+    myFile.print(dataMessage.c_str());
+	myFile.flush();					  
+	lastTimebmp = millis();
+    }//end write
+	
+//exibe as informacoes coletadas
     if (targetTime < millis()) {
         tft.fillScreen(TFT_BLACK);
         tft.setTextSize(1);
@@ -310,33 +311,8 @@ void loopMAX30105(void)
         tft.drawString(buff, 0, 40);
         snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", MAX32664.max32664Output.spo2);
         tft.drawString(buff, 0, 60);
-                targetTime += 1000;
-
-        
-    }
-
-    //measureTime += 100; //delay 100ms
-
-    //////write sd
-    if ((millis() - lastTimebmp) > timerDelaybmp) { //reading every 200ms
-    tseconds = millis();
-      ///get MAX32664 reading 
-    uint8_t num_samples = MAX32664.readSamples();
-    if(num_samples==0) Serial.println("MAX32664 - No samples to read");
-    systol = MAX32664.max32664Output.sys;
-    diastol = MAX32664.max32664Output.dia;
-    heart = MAX32664.max32664Output.hr;
-    oxig = MAX32664.max32664Output.spo2;
-    dataMessage = String(tseconds) + ";" + String(systol) +";"+ String(diastol) +";"+ String(heart) +";"+ String(oxig) + "\r\n";
-
-
-    //Append the data to file
-    Serial.println(dataMessage);
-    
-    myFile.print(dataMessage.c_str());
-	myFile.flush();					  
-	lastTimebmp = millis();
-    }//end write
+        targetTime += 1000;
+    }	
 
 }
 
