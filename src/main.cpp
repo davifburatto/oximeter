@@ -26,7 +26,7 @@
 #define  MPU_INT                 39
 #define  RESET_PIN               02
 #define  MFIO_PIN                04
-#define  RAWDATA_BUFFLEN         250
+#define  RAWDATA_BUFFLEN         200
 
 #define debug
 

@@ -301,7 +301,7 @@ uint8_t max32664::readNumSamples()
 }
 
 
-bool max32664::readMultipleBytes(uint8_t data1, uint8_t data2, uint8_t * readBuff, uint8_t readLen){
+bool max32664::readMultipleBytes(uint8_t data1, uint8_t data2, uint8_t * readBuff, uint16_t readLen){
   
   uint8_t returnByte;
   uint8_t statusByte;
@@ -331,7 +331,7 @@ bool max32664::readMultipleBytes(uint8_t data1, uint8_t data2, uint8_t * readBuf
 }
 
 
-bool max32664::readMultipleBytes(uint8_t data1, uint8_t data2, uint8_t data3, uint8_t * readBuff, uint8_t readLen){
+bool max32664::readMultipleBytes(uint8_t data1, uint8_t data2, uint8_t data3, uint8_t * readBuff, uint16_t readLen){
   
   uint8_t returnByte;
   uint8_t statusByte;

@@ -36,7 +36,7 @@
 
 #define SENSORHUB_ADDR  0x55
 #define CALIBVECTOR_SIZE  827
-#define  RAWDATA_BUFFLEN 250 //200
+#define  RAWDATA_BUFFLEN 200 //mudei para 250 pq?
 #define  ERR_UNKNOWN      0xff
 
 
@@ -110,8 +110,8 @@ class max32664
     bool writeByte(uint8_t data1, uint8_t data2, uint8_t data3);
     bool writeByte(uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4);
     uint8_t readNumSamples();
-    bool readMultipleBytes(uint8_t data1, uint8_t data2, uint8_t * readBuff, uint8_t readLen);
-    bool readMultipleBytes(uint8_t data1, uint8_t data2, uint8_t data3, uint8_t * readBuff, uint8_t readLen);
+    bool readMultipleBytes(uint8_t data1, uint8_t data2, uint8_t * readBuff, uint16_t readLen);
+    bool readMultipleBytes(uint8_t data1, uint8_t data2, uint8_t data3, uint8_t * readBuff, uint16_t readLen);
     bool writeMultipleBytes(uint8_t * wrBuff, uint8_t wrLen);
     bool loadBPTcalibrationVector();
     bool setDateTime();
