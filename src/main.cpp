@@ -7,6 +7,7 @@
 #include <max32664.h>
 #include <SPI.h>
 #include <mySD.h>
+#include <SensirionI2CScd4x.h>
 #include "MPU6050.h"
 #include "heartRate.h"
 
@@ -32,6 +33,8 @@ PCF8563_Class rtc;
 MPU6050     mpu;
 OneButton   button(BUTTON_PIN, true);
 max32664 MAX32664(RESET_PIN, MFIO_PIN, RAWDATA_BUFFLEN);
+
+SensirionI2CScd4x scd4x;
 
 //sdcard
 File myFile;
@@ -80,6 +83,10 @@ unsigned long epochTime;
 unsigned long lastTimebmp = 0;
 unsigned long timerDelaybmp = 100;//250
 
+//SCD Variables
+unsigned long timerDelaySCD = 5000;//250
+
+
 //teste
 uint8_t progresso;
 
@@ -101,6 +108,21 @@ void setup(void);
 String getVoltage(void);
 void page1(void);
 
+
+void printUint16Hex(uint16_t value) {
+    Serial.print(value < 4096 ? "0" : "");
+    Serial.print(value < 256 ? "0" : "");
+    Serial.print(value < 16 ? "0" : "");
+    Serial.print(value, HEX);
+}
+
+void printSerialNumber(uint16_t serial0, uint16_t serial1, uint16_t serial2) {
+    Serial.print("Serial: 0x");
+    printUint16Hex(serial0);
+    printUint16Hex(serial1);
+    printUint16Hex(serial2);
+    Serial.println();
+}
 
 String get_date()
 {   String get_date_time;
@@ -314,6 +336,38 @@ void loopMAX30105(void)
         targetTime += 1000;
     }	
 
+    //SCD41
+        //write sd
+    if ((millis() - lastTimebmp) > timerDelaySCD) { //reading every 5s
+    
+	///get SCD41 reading 
+      uint16_t error;
+    char errorMessage[256];
+
+    delay(5000);
+
+    // Read Measurement
+    error = scd4x.readMeasurement(co2, temperature, humidity);
+    if (error) {
+        Serial.print("Error trying to execute readMeasurement(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    } else if (co2 == 0) {
+        Serial.println("Invalid sample detected, skipping.");
+    } else {
+        Serial.print("Co2:");
+        Serial.print(co2);
+        Serial.print("\t");
+        Serial.print("Temperature:");
+        Serial.print(temperature);
+        Serial.print("\t");
+        Serial.print("Humidity:");
+        Serial.println(humidity);
+    }
+						  
+	lastTimebmp = millis();
+    }
+
 }
 
 void setupMonitor()
@@ -398,7 +452,42 @@ void setup(void)
   
   Serial.println("SD initialization done.");
    
-    
+    Wire.begin();
+    uint16_t error;
+    char errorMessage[256];
+
+    scd4x.begin(Wire);
+
+        // stop potentially previously started measurement
+    error = scd4x.stopPeriodicMeasurement();
+    if (error) {
+        Serial.print("Error trying to execute stopPeriodicMeasurement(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    }
+
+    uint16_t serial0;
+    uint16_t serial1;
+    uint16_t serial2;
+    error = scd4x.getSerialNumber(serial0, serial1, serial2);
+    if (error) {
+        Serial.print("Error trying to execute getSerialNumber(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    } else {
+        printSerialNumber(serial0, serial1, serial2);
+    }
+
+    // Start Measurement
+    error = scd4x.startPeriodicMeasurement();
+    if (error) {
+        Serial.print("Error trying to execute startPeriodicMeasurement(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    }
+
+    Serial.println("Waiting for first measurement... (5 sec)");
+
     tft.init();
     tft.setRotation(1);//3
     tft.setSwapBytes(true);
