@@ -9,6 +9,36 @@
 #include <mySD.h>
 #include "MPU6050.h"
 #include "heartRate.h"
+#if defined(ESP32)
+#include <WiFiMulti.h>
+WiFiMulti wifiMulti;
+#define DEVICE "ESP32"
+#elif defined(ESP8266)
+#include <ESP8266WiFiMulti.h>
+ESP8266WiFiMulti wifiMulti;
+#define DEVICE "ESP8266"
+#endif
+#include <InfluxDbClient.h>
+#include <InfluxDbCloud.h>
+
+/*INFLUXDB Config*/
+// WiFi AP SSID
+#define WIFI_SSID "BURATTO2"
+// WiFi password
+#define WIFI_PASSWORD "141213daviedrica"
+// InfluxDB v2 server url, e.g. https://eu-central-1-1.aws.cloud2.influxdata.com (Use: InfluxDB UI -> Load Data -> Client Libraries)
+#define INFLUXDB_URL "http://147.182.210.180:8086"
+// InfluxDB v2 server or cloud API token (Use: InfluxDB UI -> Data -> API Tokens -> <select token>)
+#define INFLUXDB_TOKEN "leegt4je9USj1d2T3SHed5EbnKI-puJwdJwXibgxso1pHxtPaK-C5SzlwGOxaSAUUhPKj8Ra5PCz53ek8W8y4A=="
+// InfluxDB v2 organization id (Use: InfluxDB UI -> User -> About -> Common Ids )
+#define INFLUXDB_ORG "PUC"
+// InfluxDB v2 bucket name (Use: InfluxDB UI ->  Data -> Buckets)
+#define INFLUXDB_BUCKET "data_coletada"
+// Set timezone string according to https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
+// Examples:
+#define TZ_INFO "<-03>3"
+
+/*********************/
 
 
 #define  I2C_SDA_PIN             21
@@ -32,6 +62,14 @@ PCF8563_Class rtc;
 MPU6050     mpu;
 OneButton   button(BUTTON_PIN, true);
 max32664 MAX32664(RESET_PIN, MFIO_PIN, RAWDATA_BUFFLEN);
+
+/*INFLUXDB Config*/
+// InfluxDB client instance with preconfigured InfluxCloud certificate
+InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
+
+// Data point
+Point sensor("Monitor_1");
+/*********************/
 
 //sdcard
 File myFile;
@@ -276,7 +314,7 @@ bool setupMAX30105(void)
 void loopMAX30105(void)
 {
     //write sd
-    if ((millis() - lastTimebmp) > timerDelaybmp) { //reading every 200ms
+    if ((millis() - lastTimebmp) > timerDelaybmp) { //reading every 250ms
     tseconds = millis();
    
 	///get MAX32664 reading 
@@ -303,15 +341,46 @@ void loopMAX30105(void)
     if (targetTime < millis()) {
         tft.fillScreen(TFT_BLACK);
         tft.setTextSize(1);
-        snprintf(buff, sizeof(buff), "Sistolica= %d mmHg", MAX32664.max32664Output.sys);
+        //snprintf(buff, sizeof(buff), "Sistolica= %d mmHg", MAX32664.max32664Output.sys);
+        snprintf(buff, sizeof(buff), "Sistolica= %d mmHg", systol);
         tft.drawString(buff, 0, 0);
-        snprintf(buff, sizeof(buff), "Diastolica= %.2d mmHg", MAX32664.max32664Output.dia);
+       //snprintf(buff, sizeof(buff), "Diastolica= %.2d mmHg", MAX32664.max32664Output.dia);
+        snprintf(buff, sizeof(buff), "Diastolica= %.2d mmHg", diastol);
         tft.drawString(buff, 0, 20);
-        snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d BPM", MAX32664.max32664Output.hr);
+        //snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d BPM", MAX32664.max32664Output.hr);
+        snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d BPM", heart);
         tft.drawString(buff, 0, 40);
-        snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", MAX32664.max32664Output.spo2);
+        //snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", MAX32664.max32664Output.spo2);
+        snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", oxig);
         tft.drawString(buff, 0, 60);
+        /*INFLUXDB*/
+        // Clear fields for reusing the point. Tags will remain untouched
+        sensor.clearFields();
+
+        // Store measured value into point
+        // Report RSSI of currently connected network
+        sensor.addField("Sistolica", systol);                              // Store measured value into point
+        sensor.addField("Diastolica", diastol);                                // Store measured value into point
+        sensor.addField("Freq. Cardiaca", heart);                              // Store measured value into point
+        sensor.addField("Oxigenacao", oxig);                                // Store measured value into point
+        
+        // Print what are we exactly writing
+        Serial.print("Writing: ");
+        Serial.println(sensor.toLineProtocol());
+
+        // Check WiFi connection and reconnect if needed
+        if (wifiMulti.run() != WL_CONNECTED) {
+            Serial.println("Wifi connection lost");
+        }
+
+        // Write point
+        if (!client.writePoint(sensor)) {
+            Serial.print("InfluxDB write failed: ");
+            Serial.println(client.getLastErrorMessage());
+        }
+        /**********/
         targetTime += 1000;
+
     }	
 
 }
@@ -389,16 +458,11 @@ void setup(void)
     Serial.begin(115200);
     
     pinMode(SS, OUTPUT);
-  if (!SD.begin(26, 14, 13, 27)) {
-    
+    if (!SD.begin(26, 14, 13, 27)) {
     Serial.println("initialization failed!");
-    
     return;
   }
-  
-  Serial.println("SD initialization done.");
-   
-    
+    Serial.println("SD initialization done.");
     tft.init();
     tft.setRotation(1);//3
     tft.setSwapBytes(true);
@@ -446,6 +510,37 @@ void setup(void)
     targetTime = 0;
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(TFT_YELLOW, TFT_BLACK); // Note: the new fonts do not draw the background colour
+
+    /*INFLUXDB*/
+      // Setup wifi
+  WiFi.mode(WIFI_STA);
+  wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
+
+  Serial.print("Connecting to wifi");
+  while (wifiMulti.run() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(100);
+  }
+  Serial.println();
+
+  // Add tags
+  sensor.addTag("device", DEVICE);
+  sensor.addTag("SSID", WiFi.SSID());
+
+  // Accurate time is necessary for certificate validation and writing in batches
+  // For the fastest time sync find NTP servers in your area: https://www.pool.ntp.org/zone/
+  // Syncing progress and the time will be printed to Serial.
+  timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
+
+  // Check server connection
+  if (client.validateConnection()) {
+    Serial.print("Connected to InfluxDB: ");
+    Serial.println(client.getServerUrl());
+  } else {
+    Serial.print("InfluxDB connection failed: ");
+    Serial.println(client.getLastErrorMessage());
+  }
+    /**********/
 
 
 }
