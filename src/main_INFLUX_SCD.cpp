@@ -55,7 +55,6 @@ WiFiMulti wifiMulti;
 
 TFT_eSPI    tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
 PCF8563_Class rtc;
-MPU6050     mpu;
 OneButton   button(BUTTON_PIN, true);
 max32664 MAX32664(RESET_PIN, MFIO_PIN, RAWDATA_BUFFLEN);
 Adafruit_BMP280 bmp; // I2C
@@ -422,6 +421,7 @@ bool setupRTC(void)
     }
 
     rtc.begin(Wire);
+    Wire.setClock(50000);
 
     pinMode(RTC_INT_PIN, INPUT_PULLUP);
     attachInterrupt(RTC_INT_PIN, [] {
@@ -430,6 +430,8 @@ bool setupRTC(void)
     //Use compile time
     RTC_Date compiled = RTC_Date(__DATE__, __TIME__);
     rtc.setDateTime(compiled);
+    //rtc.setDateTime(2019, 4, 1, 12, 33, 59);
+    
     //Check if the RTC clock matches, if not, use compile time   
     //rtc.check();
 
@@ -545,6 +547,7 @@ void setup(void)
 
 
     scd4x.begin(Wire);
+    Wire.setClock(50000);
 
     // stop potentially previously started measurement
     error = scd4x.stopPeriodicMeasurement();
