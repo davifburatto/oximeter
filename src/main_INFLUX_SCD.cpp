@@ -19,9 +19,9 @@ WiFiMulti wifiMulti;
 
 /*INFLUXDB Config*/
 // WiFi AP SSID
-#define WIFI_SSID "DFB"//"BURATTO2"
+#define WIFI_SSID "BURATTO2"
 // WiFi password
-#define WIFI_PASSWORD "kx-ft21ww3"//"141213daviedrica"
+#define WIFI_PASSWORD "141213daviedrica"
 // InfluxDB v2 server url, e.g. https://eu-central-1-1.aws.cloud2.influxdata.com (Use: InfluxDB UI -> Load Data -> Client Libraries)
 #define INFLUXDB_URL "http://iot.buratto.eng.br:8086"
 // InfluxDB v2 server or cloud API token (Use: InfluxDB UI -> Data -> API Tokens -> <select token>)
@@ -341,16 +341,16 @@ void loopMAX30105(void)
     if (targetTime < millis()) {
         tft.fillScreen(TFT_BLACK);
         tft.setTextSize(1);
-        snprintf(buff, sizeof(buff), "Sistolica= %d mmHg", MAX32664.max32664Output.sys);
+        snprintf(buff, sizeof(buff), "Sistolica= %d", MAX32664.max32664Output.sys);
         //snprintf(buff, sizeof(buff), "Sistolica= %d mmHg", systol);
         tft.drawString(buff, 0, 0);
-        snprintf(buff, sizeof(buff), "Diastolica= %.2d mmHg", MAX32664.max32664Output.dia);
+        snprintf(buff, sizeof(buff), "Diastolica= %.2d", MAX32664.max32664Output.dia);
         //snprintf(buff, sizeof(buff), "Diastolica= %.2d mmHg", diastol);
         tft.drawString(buff, 0, 20);
-        snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d BPM", MAX32664.max32664Output.hr);
+        snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d", MAX32664.max32664Output.hr);
         //snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d BPM", heart);
         tft.drawString(buff, 0, 40);
-        snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", MAX32664.max32664Output.spo2);
+        snprintf(buff, sizeof(buff), "Oxigenacao= %.2f", MAX32664.max32664Output.spo2);
         //snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", oxig);
         tft.drawString(buff, 0, 60);
         /*INFLUXDB*/
@@ -363,10 +363,10 @@ void loopMAX30105(void)
         sensor.addField("Diastolica", diastol);                             // Store measured value into point
         sensor.addField("Freq. Cardiaca", heart);                           // Store measured value into point
         sensor.addField("Oxigenacao", oxig);                                // Store measured value into point
-        sensor.addField("CO2", co2);                                        // Store measured value into point
+        sensor.addField("CO2", (co2/100));                                        // Store measured value into point
         sensor.addField("Temperatura Resp.", temperature);                        // Store measured value into point
         sensor.addField("Umidade Resp.", humidity);                               // Store measured value into point
-        sensor.addField("Pressao", pressao);                                // Store measured value into point
+        sensor.addField("Pressao", (pressao/100));                                // Store measured value into point
 
         
         // Print what are we exactly writing
