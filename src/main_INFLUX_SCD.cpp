@@ -108,7 +108,7 @@ unsigned long tseconds;
 unsigned long epochTime; 
 // Timer BMP variables
 unsigned long lastTimeMAX = 0;
-unsigned long timerDelayMAX = 100;//250
+unsigned long timerDelayMAX = 250;//250
 unsigned long lastTimeSCD = 0;
 unsigned long timerDelaySCD = 5000;//250
 unsigned long lastTimeBMP = 0;
@@ -323,13 +323,7 @@ void loopMAX30105(void)
         pressao = bmp.readPressure();
         Serial.print(pressao);
         Serial.println(" Pa");
-
-//        Serial.print(F("Approx altitude = "));
-//        Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
-//        Serial.println(" m");
-
-        Serial.println();
-        
+        Serial.println(); 
     } 
     else {Serial.println("Forced measurement failed!");}
     
@@ -341,16 +335,12 @@ void loopMAX30105(void)
         tft.fillScreen(TFT_BLACK);
         tft.setTextSize(1);
         snprintf(buff, sizeof(buff), "Sistolica= %d", MAX32664.max32664Output.sys);
-        //snprintf(buff, sizeof(buff), "Sistolica= %d mmHg", systol);
         tft.drawString(buff, 0, 0);
         snprintf(buff, sizeof(buff), "Diastolica= %.2d", MAX32664.max32664Output.dia);
-        //snprintf(buff, sizeof(buff), "Diastolica= %.2d mmHg", diastol);
         tft.drawString(buff, 0, 20);
         snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d", MAX32664.max32664Output.hr);
-        //snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d BPM", heart);
         tft.drawString(buff, 0, 40);
         snprintf(buff, sizeof(buff), "Oxigenacao= %.2f", MAX32664.max32664Output.spo2);
-        //snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", oxig);
         tft.drawString(buff, 0, 60);
         /*INFLUXDB*/
         // Clear fields for reusing the point. Tags will remain untouched
@@ -362,12 +352,11 @@ void loopMAX30105(void)
         sensor.addField("Diastolica", diastol);                             // Store measured value into point
         sensor.addField("Freq. Cardiaca", heart);                           // Store measured value into point
         sensor.addField("Oxigenacao", oxig);                                // Store measured value into point
-        sensor.addField("CO2", (co2/100));                                        // Store measured value into point
+        sensor.addField("CO2", (co2/10));                                        // Store measured value into point
         sensor.addField("Temperatura Resp.", temperature);                        // Store measured value into point
         sensor.addField("Umidade Resp.", humidity);                               // Store measured value into point
-        sensor.addField("Pressao", (pressao/100));                                // Store measured value into point
+        sensor.addField("Pressao", (pressao/10));                                // Store measured value into point
 
-        
         // Print what are we exactly writing
         Serial.print("Writing: ");
         Serial.println(sensor.toLineProtocol());
@@ -383,7 +372,7 @@ void loopMAX30105(void)
             Serial.println(client.getLastErrorMessage());
         }
         /**********/
-        targetTime += 1000;
+        targetTime += 250;
 
     }	
 
