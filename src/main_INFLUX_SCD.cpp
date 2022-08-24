@@ -318,21 +318,13 @@ void loopMAX30105(void)
     if ((millis() - lastTimeBMP) > timerDelayBMP) { //reading every 250ms
     // must call this to wake sensor up and get new measurement data
     // it blocks until measurement is complete
-    if (bmp.takeForcedMeasurement()) {
+    
         Serial.print(F("Pressure = "));
         pressao = bmp.readPressure();
         Serial.print(pressao);
         Serial.println(" Pa");
 
-//        Serial.print(F("Approx altitude = "));
-//        Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
-//        Serial.println(" m");
-
-        Serial.println();
-        
-    } 
-    else {Serial.println("Forced measurement failed!");}
-    
+        //Serial.println();
 	lastTimeBMP = millis();
     }
     //*************************************************************
@@ -586,7 +578,7 @@ void setup(void)
     while (1) delay(10);
   }
   /* Default settings from datasheet. */
-  bmp.setSampling(Adafruit_BMP280::MODE_FORCED,     /* Operating Mode. */
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
                   Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
                   Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
                   Adafruit_BMP280::FILTER_X16,      /* Filtering. */
