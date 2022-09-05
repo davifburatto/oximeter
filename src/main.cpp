@@ -272,37 +272,10 @@ void startnewcalib(void)
     delay(2000);
   }
 
-    
-    if (!find_max30105 && !showError) {
-        tft.fillScreen(TFT_BLACK);
-        tft.drawString("No detected sensor", 20, 30);
-        showError = true;
-        return;
-    }
 
-    if (showError) {
-        return;
-    }
 }
 
 
-
-bool setupMAX30105(void)
-{
-    // Initialize sensor
-	int result = CMD_SUCCESS;
-		
-    if (!result == CMD_SUCCESS) { //Use default I2C port, 400kHz speed
-    tft.setTextColor(TFT_GREEN);
-    tft.println("MAX32664 was not found");
-        return false;
-    }
-    tft.setTextColor(TFT_GREEN);
-    tft.println("MAX32664 - OK");
-    tft.setTextColor(TFT_GREEN);
-    find_max30105 = true;
-    return true;
-}
 
 
 void loopMAX30105(void)
@@ -330,21 +303,7 @@ void loopMAX30105(void)
 	myFile.flush();					  
 	lastTimebmp = millis();
     }//end write
-	
-//exibe as informacoes coletadas
-    if (targetTime < millis()) {
-        tft.fillScreen(TFT_BLACK);
-        tft.setTextSize(1);
-        snprintf(buff, sizeof(buff), "Sistolica= %d mmHg", MAX32664.max32664Output.sys);
-        tft.drawString(buff, 0, 0);
-        snprintf(buff, sizeof(buff), "Diastolica= %.2d mmHg", MAX32664.max32664Output.dia);
-        tft.drawString(buff, 0, 20);
-        snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d BPM", MAX32664.max32664Output.hr);
-        tft.drawString(buff, 0, 40);
-        snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", MAX32664.max32664Output.spo2);
-        tft.drawString(buff, 0, 60);
-        targetTime += 1000;
-    }	
+
 
     //SCD41
         //write sd
@@ -353,9 +312,6 @@ void loopMAX30105(void)
 	///get SCD41 reading 
       uint16_t error;
     char errorMessage[256];
-
-    delay(5000);
-
     // Read Measurement
     error = scd4x.readMeasurement(co2, temperature, humidity);
     if (error) {
@@ -378,57 +334,6 @@ void loopMAX30105(void)
 	lastTimebmp = millis();
     }
 
-}
-
-void setupMonitor()
-{
-    esp_adc_cal_characteristics_t adc_chars;
-    esp_adc_cal_value_t val_type = esp_adc_cal_characterize((adc_unit_t)ADC_UNIT_1, (adc_atten_t)ADC1_CHANNEL_7, (adc_bits_width_t)ADC_WIDTH_BIT_12, 1100, &adc_chars);
-    //Check type of calibration value used to characterize ADC
-    if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
-        Serial.printf("eFuse Vref:%u mV", adc_chars.vref);
-        Serial.printf("\r\n");
-        vref = adc_chars.vref;
-    } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
-        Serial.printf("Two Point --> coeff_a:%umV coeff_b:%umV\n", adc_chars.coeff_a, adc_chars.coeff_b);
-    } else {
-        Serial.println("Default Vref: 1100mV");
-    }
-    pinMode(CHARGE_PIN, INPUT);
-    attachInterrupt(CHARGE_PIN, [] {
-        charge_indication = true;
-    }, CHANGE);
-
-    if (digitalRead(CHARGE_PIN) == LOW) {
-        charge_indication = true;
-    }
-}
-
-bool setupRTC(void)
-{
-    Wire.beginTransmission(PCF8563_SLAVE_ADDRESS);
-    if (Wire.endTransmission() != 0) {
-        return false;
-    }
-
-    rtc.begin(Wire);
-
-    pinMode(RTC_INT_PIN, INPUT_PULLUP);
-    attachInterrupt(RTC_INT_PIN, [] {
-        rtcIrq = 1;
-    }, FALLING);
-    //Use compile time
-    RTC_Date compiled = RTC_Date(__DATE__, __TIME__);
-    rtc.setDateTime(compiled);
-    //Check if the RTC clock matches, if not, use compile time   
-    //rtc.check();
-
-    RTC_Date datetime = rtc.getDateTime();
-    hh = datetime.hour;
-    mm = datetime.minute;
-    ss = datetime.second;
-
-    return true;
 }
 
 void clickHandle(void)
@@ -499,7 +404,7 @@ void setup(void)
     Serial.println("Waiting for first measurement... (5 sec)");
 
     tft.init();
-    tft.setRotation(1);//3
+    tft.setRotation(3);//3
     tft.setSwapBytes(true);
     tft.pushImage(0, 0,160,80, puc);
     delay(3000);
@@ -513,33 +418,11 @@ void setup(void)
     tft.setCursor(0, 0);
     tft.setTextColor(TFT_GREEN);
 
-    
-    if (!setupMAX30105()) {
-        tft.setTextColor(TFT_RED);
-        tft.println("Check MAX30105 FAIL");
-        tft.setTextColor(TFT_GREEN);
-    } else {
-        tft.println("Check MAX30105 PASS");
-    }
-
-    if (!setupRTC()) {
-        tft.setTextColor(TFT_RED);
-        tft.println("Check PCF8563 FAIL");
-        tft.setTextColor(TFT_GREEN);
-    } else {
-        tft.println("Check PCF8563 PASS");
-    }
-
-    setupMonitor();
-    tft.print("Correction Vref=");
-    tft.print(vref);
-    tft.println(" mv");
 
     setCpuFrequencyMhz(80); //crystal mounted = 40MHz, so freq_min is 10 (40/4)
 
     initSDCard();
-    delay(3000);
-
+    
 
     func_select = 0;
     targetTime = 0;
@@ -549,71 +432,13 @@ void setup(void)
 
 }
 
-String getVoltage()
-{
-    uint16_t v = analogRead(BATT_ADC_PIN);
-    float battery_voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
-    return String(battery_voltage) + "V";
-}
-
 
 void page1()
 {
-    if (charge_indication) {
-        charge_indication = false;
-        if (digitalRead(CHARGE_PIN) == LOW) {
-            tft.pushImage(140, 55, 16, 16, charge);
-        } else {
-            tft.fillRect(140, 55, 16, 16, TFT_BLACK);
-        }
-    }
-
-    if (targetTime < millis()) {
-        RTC_Date datetime = rtc.getDateTime();
-        hh = datetime.hour;
-        mm = datetime.minute;
-        ss = datetime.second;
-        // Serial.printf("hh:%d mm:%d ss:%d\n", hh, mm, ss);
-        targetTime = millis() + 1000;
-        if (ss == 0 || initial) {
-            initial = 0;
-            tft.setTextColor(TFT_GREEN, TFT_BLACK);
-            tft.setCursor (8, 60);
-            tft.print(__DATE__); // This uses the standard ADAFruit small font
-        }
-        tft.setTextColor(TFT_BLUE, TFT_BLACK);
-        tft.drawCentreString(getVoltage(), 120, 65, 1);
+    tft.setTextColor(TFT_GREEN);
+    tft.println("Pag 1");
 
 
-        // Update digital time
-        uint8_t xpos = 6;
-        uint8_t ypos = 0;
-        if (omm != mm) { // Only redraw every minute to minimise flicker
-            // Uncomment ONE of the next 2 lines, using the ghost image demonstrates text overlay as time is drawn over it
-            tft.setTextColor(0x39C4, TFT_BLACK);  // Leave a 7 segment ghost image, comment out next line!
-            //tft.setTextColor(TFT_BLACK, TFT_BLACK); // Set font colour to black to wipe image
-            // Font 7 is to show a pseudo 7 segment display.
-            // Font 7 only contains characters [space] 0 1 2 3 4 5 6 7 8 9 0 : .
-            tft.drawString("88:88", xpos, ypos, 7); // Overwrite the text to clear it
-            tft.setTextColor(0xFBE0, TFT_BLACK); // Orange
-            omm = mm;
-
-            if (hh < 10) xpos += tft.drawChar('0', xpos, ypos, 7);
-            xpos += tft.drawNumber(hh, xpos, ypos, 7);
-            xcolon = xpos;
-            xpos += tft.drawChar(':', xpos, ypos, 7);
-            if (mm < 10) xpos += tft.drawChar('0', xpos, ypos, 7);
-            tft.drawNumber(mm, xpos, ypos, 7);
-        }
-
-        if (ss % 2) { // Flash the colon
-            tft.setTextColor(0x39C4, TFT_BLACK);
-            xpos += tft.drawChar(':', xcolon, ypos, 7);
-            tft.setTextColor(0xFBE0, TFT_BLACK);
-        } else {
-            tft.drawChar(':', xcolon, ypos, 7);
-        }
-    }
 }
 
 void loop()
@@ -640,17 +465,5 @@ void loop()
     default:
         break;
     }
-}
-
-void drawProgressBar(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint8_t percentage, uint16_t frameColor, uint16_t barColor)
-{
-    if (percentage == 0) {
-        tft.fillRoundRect(x0, y0, w, h, 3, TFT_BLACK);
-    }
-    uint8_t margin = 2;
-    uint16_t barHeight = h - 2 * margin;
-    uint16_t barWidth = w - 2 * margin;
-    tft.drawRoundRect(x0, y0, w, h, 3, frameColor);
-    tft.fillRect(x0 + margin, y0 + margin, barWidth * percentage / 100.0, barHeight, barColor);
 }
 
