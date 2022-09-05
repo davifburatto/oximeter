@@ -10,6 +10,9 @@
 #include <SensirionI2CScd4x.h>
 #include "MPU6050.h"
 #include "heartRate.h"
+#include <Adafruit_BMP280.h>
+#include <SensirionI2CScd4x.h>
+#include <Wire.h>
 
 
 #define  I2C_SDA_PIN             21
@@ -194,7 +197,7 @@ void deinitSDCard(){
 }
 
 void mfioInterruptHndlr(){
-  //Serial.println("i");
+  Serial.println("interrupt SHC");
 }
 
 void enableInterruptPin(){
@@ -243,6 +246,10 @@ void startnewcalib(void)
 
     while(!ret){
     delay(1000);//10000
+
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_GREEN);
+    tft.drawString("Reposicione o Dedo", 2, 30,4);
     
     Serial.println("failed calib, please restart");
     
@@ -251,6 +258,9 @@ void startnewcalib(void)
   delay(2000);
     
     Serial.println("start in estimation mode");
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_GREEN);
+    tft.drawString("Iniciando", 2, 30,4);
     
     ret = MAX32664.configAlgoInEstimationMode();
     while(!ret){
@@ -445,7 +455,7 @@ void setup(void)
     pinMode(SS, OUTPUT);
   if (!SD.begin(26, 14, 13, 27)) {
     
-    Serial.println("initialization failed!");
+    Serial.println("SD initialization failed!");
     
     return;
   }
