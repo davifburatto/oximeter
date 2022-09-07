@@ -116,7 +116,7 @@ unsigned long tseconds;
 unsigned long epochTime; 
 // Timer BMP variables
 unsigned long lastTimebmp = 0;
-unsigned long timerDelaybmp = 100;//250
+unsigned long timerDelaybmp = 300;//250
 
 //teste
 uint8_t progresso;
@@ -338,7 +338,7 @@ void loopMAX30105(void)
     }//end write
 	
 //exibe as informacoes coletadas
-    if (targetTime < millis()) {
+/*     if (targetTime < millis()) {
         tft.fillScreen(TFT_BLACK);
         tft.setTextSize(1);
         //snprintf(buff, sizeof(buff), "Sistolica= %d mmHg", MAX32664.max32664Output.sys);
@@ -380,8 +380,44 @@ void loopMAX30105(void)
         }
         /**********/
         targetTime += 1000;
+<<<<<<< Updated upstream:old/main_SD_INFLUX.cpp.ok
 
     }	
+=======
+    }	 */
+
+    //SCD41
+        //write sd
+    if ((millis() - lastTimebmp) > timerDelaySCD) { //reading every 5s
+    
+	///get SCD41 reading 
+      uint16_t error;
+    char errorMessage[256];
+
+   // delay(5000);
+
+    // Read Measurement
+    error = scd4x.readMeasurement(co2, temperature, humidity);
+    if (error) {
+        Serial.print("Error trying to execute readMeasurement(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    } else if (co2 == 0) {
+        Serial.println("Invalid sample detected, skipping.");
+    } else {
+        Serial.print("Co2:");
+        Serial.print(co2);
+        Serial.print("\t");
+        Serial.print("Temperature:");
+        Serial.print(temperature);
+        Serial.print("\t");
+        Serial.print("Humidity:");
+        Serial.println(humidity);
+    }
+						  
+	lastTimebmp = millis();
+    }
+>>>>>>> Stashed changes:src/main.cpp
 
 }
 
