@@ -8,12 +8,14 @@
 #include <SPI.h>
 #include "MPU6050.h"
 #include "heartRate.h"
-
+#include <SensirionI2CScd4x.h>
 #include <WiFiMulti.h>
 WiFiMulti wifiMulti;
 #define DEVICE "ESP32"
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
+#include <Adafruit_BMP280.h>
+
 
 /*INFLUXDB Config*/
 // WiFi AP SSID
@@ -53,9 +55,10 @@ WiFiMulti wifiMulti;
 
 TFT_eSPI    tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
 PCF8563_Class rtc;
-MPU6050     mpu;
 OneButton   button(BUTTON_PIN, true);
 max32664 MAX32664(RESET_PIN, MFIO_PIN, RAWDATA_BUFFLEN);
+Adafruit_BMP280 bmp; // I2C
+SensirionI2CScd4x scd4x;
 
 /*INFLUXDB Config*/
 // InfluxDB client instance with preconfigured InfluxCloud certificate
@@ -104,8 +107,17 @@ String timelog;
 unsigned long tseconds; 
 unsigned long epochTime; 
 // Timer BMP variables
-unsigned long lastTimebmp = 0;
-unsigned long timerDelaybmp = 100;//250
+unsigned long lastTimeMAX = 0;
+unsigned long timerDelayMAX = 100;//250
+unsigned long lastTimeSCD = 0;
+unsigned long timerDelaySCD = 5000;//250
+unsigned long lastTimeBMP = 0;
+unsigned long timerDelayBMP = 250;//250
+uint16_t error;
+char errorMessage[256];
+float temperatura;
+float pressao;
+
 
 
 void drawProgressBar(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint8_t percentage, uint16_t frameColor, uint16_t barColor);
@@ -126,6 +138,20 @@ void setup(void);
 String getVoltage(void);
 void page1(void);
 
+void printUint16Hex(uint16_t value) {
+    Serial.print(value < 4096 ? "0" : "");
+    Serial.print(value < 256 ? "0" : "");
+    Serial.print(value < 16 ? "0" : "");
+    Serial.print(value, HEX);
+}
+
+void printSerialNumber(uint16_t serial0, uint16_t serial1, uint16_t serial2) {
+    Serial.print("Serial: 0x");
+    printUint16Hex(serial0);
+    printUint16Hex(serial1);
+    printUint16Hex(serial2);
+    Serial.println();
+}
 
 String get_date()
 {   String get_date_time;
@@ -247,7 +273,7 @@ bool setupMAX30105(void)
 void loopMAX30105(void)
 {
     //write sd
-    if ((millis() - lastTimebmp) > timerDelaybmp) { //reading every 250ms
+    if ((millis() - lastTimeMAX) > timerDelayMAX) { //reading every 250ms
     tseconds = millis();
    
 	///get MAX32664 reading 
@@ -259,25 +285,63 @@ void loopMAX30105(void)
 		heart = MAX32664.max32664Output.hr;
 		oxig = MAX32664.max32664Output.spo2;  	
     }
-	  
-
-	lastTimebmp = millis();
+	lastTimeMAX = millis();
     }//end write
 	
+    //*********************************SCD41***********************
+
+    if ((millis() - lastTimeSCD) > timerDelaySCD) { //reading every 5s
+       // Read Measurement
+    error = scd4x.readMeasurement(co2, temperature, humidity);
+    if (error) {
+        Serial.print("Error trying to execute readMeasurement(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    } else if (co2 == 0) {
+        Serial.println("Invalid sample detected, skipping.");
+    } else {
+        Serial.print("Co2:");
+        Serial.print(co2);
+        Serial.print("\t");
+        Serial.print("Temperature:");
+        Serial.print(temperature);
+        Serial.print("\t");
+        Serial.print("Humidity:");
+        Serial.println(humidity);
+    }
+
+	lastTimeSCD = millis();
+    }
+    //*************************************************************
+    //*********************************BMP280***********************
+
+    if ((millis() - lastTimeBMP) > timerDelayBMP) { //reading every 250ms
+    // must call this to wake sensor up and get new measurement data
+    // it blocks until measurement is complete
+    
+        Serial.print(F("Pressure = "));
+        pressao = bmp.readPressure();
+        Serial.print(pressao);
+        Serial.println(" Pa");
+
+        //Serial.println();
+	lastTimeBMP = millis();
+    }
+    //*************************************************************
 //exibe as informacoes coletadas
     if (targetTime < millis()) {
         tft.fillScreen(TFT_BLACK);
         tft.setTextSize(1);
-        snprintf(buff, sizeof(buff), "Sistolica= %d mmHg", MAX32664.max32664Output.sys);
+        snprintf(buff, sizeof(buff), "Sistolica= %d", MAX32664.max32664Output.sys);
         //snprintf(buff, sizeof(buff), "Sistolica= %d mmHg", systol);
         tft.drawString(buff, 0, 0);
-        snprintf(buff, sizeof(buff), "Diastolica= %.2d mmHg", MAX32664.max32664Output.dia);
+        snprintf(buff, sizeof(buff), "Diastolica= %.2d", MAX32664.max32664Output.dia);
         //snprintf(buff, sizeof(buff), "Diastolica= %.2d mmHg", diastol);
         tft.drawString(buff, 0, 20);
-        snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d BPM", MAX32664.max32664Output.hr);
+        snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d", MAX32664.max32664Output.hr);
         //snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d BPM", heart);
         tft.drawString(buff, 0, 40);
-        snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", MAX32664.max32664Output.spo2);
+        snprintf(buff, sizeof(buff), "Oxigenacao= %.2f", MAX32664.max32664Output.spo2);
         //snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", oxig);
         tft.drawString(buff, 0, 60);
         /*INFLUXDB*/
@@ -286,10 +350,15 @@ void loopMAX30105(void)
 
         // Store measured value into point
         // Report RSSI of currently connected network
-        sensor.addField("Sistolica", systol);                              // Store measured value into point
-        sensor.addField("Diastolica", diastol);                                // Store measured value into point
-        sensor.addField("Freq. Cardiaca", heart);                              // Store measured value into point
+        sensor.addField("Sistolica", systol);                               // Store measured value into point
+        sensor.addField("Diastolica", diastol);                             // Store measured value into point
+        sensor.addField("Freq. Cardiaca", heart);                           // Store measured value into point
         sensor.addField("Oxigenacao", oxig);                                // Store measured value into point
+        sensor.addField("CO2", (co2/100));                                        // Store measured value into point
+        sensor.addField("Temperatura Resp.", temperature);                        // Store measured value into point
+        sensor.addField("Umidade Resp.", humidity);                               // Store measured value into point
+        sensor.addField("Pressao", (pressao/100));                                // Store measured value into point
+
         
         // Print what are we exactly writing
         Serial.print("Writing: ");
@@ -344,6 +413,7 @@ bool setupRTC(void)
     }
 
     rtc.begin(Wire);
+    Wire.setClock(50000);
 
     pinMode(RTC_INT_PIN, INPUT_PULLUP);
     attachInterrupt(RTC_INT_PIN, [] {
@@ -352,6 +422,8 @@ bool setupRTC(void)
     //Use compile time
     RTC_Date compiled = RTC_Date(__DATE__, __TIME__);
     rtc.setDateTime(compiled);
+    //rtc.setDateTime(2019, 4, 1, 12, 33, 59);
+    
     //Check if the RTC clock matches, if not, use compile time   
     //rtc.check();
 
@@ -463,6 +535,54 @@ void setup(void)
   }
     /**********/
 
+//********************************SCD41*****************************//
+
+
+    scd4x.begin(Wire);
+    Wire.setClock(50000);
+
+    // stop potentially previously started measurement
+    error = scd4x.stopPeriodicMeasurement();
+    if (error) {
+        Serial.print("Error trying to execute stopPeriodicMeasurement(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    }
+
+    uint16_t serial0;
+    uint16_t serial1;
+    uint16_t serial2;
+    error = scd4x.getSerialNumber(serial0, serial1, serial2);
+    if (error) {
+        Serial.print("Error trying to execute getSerialNumber(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    } else {
+        printSerialNumber(serial0, serial1, serial2);
+    }
+
+    // Start Measurement
+    error = scd4x.startPeriodicMeasurement();
+    if (error) {
+        Serial.print("Error trying to execute startPeriodicMeasurement(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    }
+
+    Serial.println("Waiting for first measurement... (5 sec)");
+
+//*************BMP280**************
+  if (!bmp.begin(BMP280_ADDRESS_ALT, BMP280_CHIPID)) {
+    Serial.println(F("Could not find a valid BMP280 sensor, check wiring or "
+                      "try a different address!"));
+    while (1) delay(10);
+  }
+  /* Default settings from datasheet. */
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
+                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
+                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
+                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
+                  Adafruit_BMP280::STANDBY_MS_1); /* Standby time. */
 
 }
 
@@ -535,6 +655,10 @@ void page1()
 
 void loop()
 {
+    //***scd41
+        uint16_t error;
+    char errorMessage[256];
+    //***
     button.tick();
     switch (func_select) {
     case 0:
@@ -555,6 +679,7 @@ void loop()
     default:
         break;
     }
+
 }
 
 void drawProgressBar(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint8_t percentage, uint16_t frameColor, uint16_t barColor)
