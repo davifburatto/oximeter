@@ -23,11 +23,11 @@ WiFiMulti wifiMulti;
 // InfluxDB v2 server url, e.g. https://eu-central-1-1.aws.cloud2.influxdata.com (Use: InfluxDB UI -> Load Data -> Client Libraries)
 #define INFLUXDB_URL "http://iot.buratto.eng.br:8086"
 // InfluxDB v2 server or cloud API token (Use: InfluxDB UI -> Data -> API Tokens -> <select token>)
-#define INFLUXDB_TOKEN "leegt4je9USj1d2T3SHed5EbnKI-puJwdJwXibgxso1pHxtPaK-C5SzlwGOxaSAUUhPKj8Ra5PCz53ek8W8y4A=="
+#define INFLUXDB_TOKEN "NI7r8G0Npudsb0ThM_S9Z4es1GymlIOpaCLIBZxN5ZGNUYdk54TvJCzQf5TMCPFbr9bFfa-U33H_5LiS6CXahA=="
 // InfluxDB v2 organization id (Use: InfluxDB UI -> User -> About -> Common Ids )
 #define INFLUXDB_ORG "PUC"
 // InfluxDB v2 bucket name (Use: InfluxDB UI ->  Data -> Buckets)
-#define INFLUXDB_BUCKET "data_coletada"
+#define INFLUXDB_BUCKET "sinais_vitais"
 // Set timezone string according to https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
 // Examples:
 #define TZ_INFO "<-03>3"
@@ -74,6 +74,10 @@ uint8_t     func_select = 0;
 uint8_t     omm = 99;
 uint8_t     xcolon = 0;
 uint32_t    targetTime = 0;       // for next 1 second timeout
+uint32_t    targetTime1 = 0;
+uint32_t    targetTime2 = 0;
+uint32_t    targetTime3 = 0;
+uint32_t    targetTime4 = 0;
 uint32_t    measureTime = 0;       // for next 100ms timeout
 uint32_t    colour = 0;
 int         vref = 1100;
@@ -265,7 +269,7 @@ void loopMAX30105(void)
     }//end write
 	
 //exibe as informacoes coletadas
-    if (targetTime < millis()) {
+    if (targetTime1 < millis()) {
         tft.fillScreen(TFT_BLACK);
         tft.setTextSize(1);
         snprintf(buff, sizeof(buff), "Sistolica= %d mmHg", MAX32664.max32664Output.sys);
@@ -306,7 +310,7 @@ void loopMAX30105(void)
             Serial.println(client.getLastErrorMessage());
         }
         /**********/
-        targetTime += 1000;
+        targetTime1 += 1000;
 
     }	
 
