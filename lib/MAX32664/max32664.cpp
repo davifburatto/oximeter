@@ -29,6 +29,12 @@
 #include <Wire.h>
 #include "max32664.h"
 #include "Arduino.h"
+#include <TFT_eSPI.h>
+
+TFT_eSPI    TFT_1 = TFT_eSPI();
+
+int porcentagem;
+
 
     uint8_t calibVector[CALIBVECTOR_SIZE] = {0x50, 0x04, 0x03, 0, 0, 175, 63, 3, 33, 75, 0, 0, 0, 0, 15, 198, 2, 100, 3, 32, 0, 0, 3, 207, 0,      //calib vector sample
                                 4, 0, 3, 175, 170, 3, 33, 134, 0, 0, 0, 0, 15, 199, 2, 100, 3, 32, 0, 0, 3,
@@ -160,6 +166,9 @@ uint8_t max32664::readCalibSamples(){
   delay(10);
   Serial.print("progress(%) = ");
   Serial.println(readBuff[13]);
+  
+  porcentagem = readBuff[13];
+
   
   return readBuff[12];
 }
@@ -615,6 +624,12 @@ bool max32664::configAlgoInEstimationMode(){
 
 bool max32664::startBPTcalibration(){
 
+  TFT_1.init();
+  TFT_1.setRotation(1);//3
+  TFT_1.setSwapBytes(true);
+  TFT_1.setTextColor(TFT_GREEN);
+  TFT_1.fillScreen(TFT_BLACK);
+
  // Serial.println("configuring calibration mode");
   enterAppMode();
   
@@ -680,7 +695,21 @@ bool max32664::startBPTcalibration(){
   while(bpStatus != 2 && (max32664Output.progress != 100) ){ //bpStatus, 0x02 == success
 
     bpStatus = readCalibSamples();
+
+
+
+////Exibe porcentagem da calibracao no display
+    
+    TFT_1.drawString("Calibrando...", 2, 30,4);
+    TFT_1.setTextFont(2);
+    TFT_1.setCursor(40, 60);
+    TFT_1.print(porcentagem);
+    TFT_1.setCursor(60, 60);
+    TFT_1.print(" %");
+/////
+
     delay(1000);
+    TFT_1.fillScreen(TFT_BLACK);
 
     if(bpStatus == 05){
       

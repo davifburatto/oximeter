@@ -19,7 +19,7 @@ WiFiMulti wifiMulti;
 
 /*INFLUXDB Config*/
 // WiFi AP SSID
-#define WIFI_SSID "BURATTO2"
+#define WIFI_SSID "BURATTO"
 // WiFi password
 #define WIFI_PASSWORD "141213daviedrica"
 // InfluxDB v2 server url, e.g. https://eu-central-1-1.aws.cloud2.influxdata.com (Use: InfluxDB UI -> Load Data -> Client Libraries)
@@ -52,6 +52,7 @@ WiFiMulti wifiMulti;
 
 #define debug
 
+//extern const int porcentagem;
 
 TFT_eSPI    tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
 PCF8563_Class rtc;
@@ -73,7 +74,7 @@ const int chipSelect = 5;
 
 bool        nocal=0;
 									 
-								   
+bool        pass = 0;								   
 char        buff[256];
 bool        rtcIrq = false;
 bool        initial = 1;
@@ -86,7 +87,7 @@ uint32_t    targetTimescd = 0;
 uint32_t    measureTime = 0;       // for next 100ms timeout
 uint32_t    colour = 0;
 int         vref = 1100;
-bool        charge_indication = false;
+//bool        charge_indication = false;
 uint8_t     hh, mm, ss, dia, mes;
 uint16_t    ano;
 
@@ -133,7 +134,7 @@ void loopMAX30105(void);
 bool setupWiFi(void);
 void setupOTA(void);
 void loopOTA(void);
-void setupMonitor();
+//void setupMonitor();
 bool setupRTC(void);
 void clickHandle(void);
 void setup(void);
@@ -268,10 +269,9 @@ void startnewcalib(void)
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(TFT_GREEN);
     tft.drawString("Insira o Dedo", 2, 30,4);
-        
-    Serial.println("Mantenha o dedo - Calib");
-    
+    delay(1000);
     bool ret = MAX32664.startBPTcalibration(); //max32664 calibration
+    Serial.println("Mantenha o dedo - Calib");
 
     while(!ret){
     delay(1000);//10000
@@ -387,7 +387,7 @@ void loopMAX30105(void)
         snprintf(buff, sizeof(buff), "Diastolica= %.2d mmHg", MAX32664.max32664Output.dia);
         //snprintf(buff, sizeof(buff), "Diastolica= %.2d mmHg", diastol);
         tft.drawString(buff, 0, 20);
-        snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d BPM", MAX32664.max32664Output.hr);
+        snprintf(buff, sizeof(buff), "Freq. Card.= %d BPM", MAX32664.max32664Output.hr);
         //snprintf(buff, sizeof(buff), "Freq. Cardiaca= %d BPM", heart);
         tft.drawString(buff, 0, 40);
         snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", MAX32664.max32664Output.spo2);
@@ -459,29 +459,29 @@ void loopMAX30105(void)
 
 }
 
-void setupMonitor()
-{
-    esp_adc_cal_characteristics_t adc_chars;
-    esp_adc_cal_value_t val_type = esp_adc_cal_characterize((adc_unit_t)ADC_UNIT_1, (adc_atten_t)ADC1_CHANNEL_7, (adc_bits_width_t)ADC_WIDTH_BIT_12, 1100, &adc_chars);
-    //Check type of calibration value used to characterize ADC
-    if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
-        Serial.printf("eFuse Vref:%u mV", adc_chars.vref);
-        Serial.printf("\r\n");
-        vref = adc_chars.vref;
-    } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
-        Serial.printf("Two Point --> coeff_a:%umV coeff_b:%umV\n", adc_chars.coeff_a, adc_chars.coeff_b);
-    } else {
-        Serial.println("Default Vref: 1100mV");
-    }
-    pinMode(CHARGE_PIN, INPUT);
-    attachInterrupt(CHARGE_PIN, [] {
-        charge_indication = true;
-    }, CHANGE);
+// void setupMonitor()
+// {
+//     esp_adc_cal_characteristics_t adc_chars;
+//     esp_adc_cal_value_t val_type = esp_adc_cal_characterize((adc_unit_t)ADC_UNIT_1, (adc_atten_t)ADC1_CHANNEL_7, (adc_bits_width_t)ADC_WIDTH_BIT_12, 1100, &adc_chars);
+//     //Check type of calibration value used to characterize ADC
+//     if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
+//         Serial.printf("eFuse Vref:%u mV", adc_chars.vref);
+//         Serial.printf("\r\n");
+//         vref = adc_chars.vref;
+//     } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
+//         Serial.printf("Two Point --> coeff_a:%umV coeff_b:%umV\n", adc_chars.coeff_a, adc_chars.coeff_b);
+//     } else {
+//         Serial.println("Default Vref: 1100mV");
+//     }
+//     pinMode(CHARGE_PIN, INPUT);
+//     attachInterrupt(CHARGE_PIN, [] {
+//         charge_indication = true;
+//     }, CHANGE);
 
-    if (digitalRead(CHARGE_PIN) == LOW) {
-        charge_indication = true;
-    }
-}
+//     if (digitalRead(CHARGE_PIN) == LOW) {
+//         charge_indication = true;
+//     }
+// }
 
 bool setupRTC(void)
 {
@@ -518,9 +518,9 @@ void clickHandle(void)
         initial = 1;
         targetTime = 0;
         omm = 99;
-        if (digitalRead(CHARGE_PIN) == LOW) {
-            charge_indication = true;
-        }
+        // if (digitalRead(CHARGE_PIN) == LOW) {
+        //     charge_indication = true;
+        // }
         tft.fillScreen(TFT_BLACK);
     }
     showError = false;
@@ -604,21 +604,20 @@ void setup(void)
         tft.println("Check PCF8563 PASS");
     }
 
-    setupMonitor();
-    tft.print("Correction Vref=");
-    tft.print(vref);
-    tft.println(" mv");
+    //setupMonitor();
+    // tft.print("Correction Vref=");
+    // tft.print(vref);
+    // tft.println(" mv");
 
     setCpuFrequencyMhz(80); //crystal mounted = 40MHz, so freq_min is 10 (40/4)
 
-   initSDCard();
+    initSDCard();
     delay(3000);
 
-
+tft.println("Conectando ao WiFi");
     func_select = 0;
     targetTime = 0;
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextColor(TFT_YELLOW, TFT_BLACK); // Note: the new fonts do not draw the background colour
+
 
     /*INFLUXDB*/
       // Setup wifi
@@ -639,7 +638,7 @@ client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS));
 
   // Add tags
   sensor.addTag("device", DEVICE);
-  sensor.addTag("SSID", WiFi.SSID());
+ // sensor.addTag("SSID", WiFi.SSID());
 
   // Accurate time is necessary for certificate validation and writing in batches
   // For the fastest time sync find NTP servers in your area: https://www.pool.ntp.org/zone/
@@ -655,7 +654,8 @@ client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS));
     Serial.println(client.getLastErrorMessage());
   }
     /**********/
-
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK); // Note: the new fonts do not draw the background colour
 
 }
 
@@ -669,61 +669,76 @@ String getVoltage()
 
 void page1()
 {
-    if (charge_indication) {
-        charge_indication = false;
-        if (digitalRead(CHARGE_PIN) == LOW) {
-            tft.pushImage(140, 55, 16, 16, charge);
-        } else {
-            tft.fillRect(140, 55, 16, 16, TFT_BLACK);
-        }
-    }
 
-    if (targetTime < millis()) {
-        RTC_Date datetime = rtc.getDateTime();
-        hh = datetime.hour;
-        mm = datetime.minute;
-        ss = datetime.second;
-        // Serial.printf("hh:%d mm:%d ss:%d\n", hh, mm, ss);
-        targetTime = millis() + 1000;
-        if (ss == 0 || initial) {
-            initial = 0;
-            tft.setTextColor(TFT_GREEN, TFT_BLACK);
-            tft.setCursor (8, 60);
-            tft.print(__DATE__); // This uses the standard ADAFruit small font
-        }
-        tft.setTextColor(TFT_BLUE, TFT_BLACK);
-        tft.drawCentreString(getVoltage(), 120, 65, 1);
+if (pass == 0){
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextFont(2);
+    tft.setCursor(0, 0);
+    tft.setTextColor(TFT_GREEN);
+    tft.println("Pronto");
+    tft.println("Pressione para iniciar");
+
+    Serial.print("Page 1::");
+    Serial.println(func_select);
+    pass = 1;
+}
+//    tft.setTextColor(TFT_GREEN);
+
+    // if (charge_indication) {
+    //     charge_indication = false;
+    //     if (digitalRead(CHARGE_PIN) == LOW) {
+    //         tft.pushImage(140, 55, 16, 16, charge);
+    //     } else {
+    //         tft.fillRect(140, 55, 16, 16, TFT_BLACK);
+    //     }
+    // }
+
+    // if (targetTime < millis()) {
+    //     RTC_Date datetime = rtc.getDateTime();
+    //     hh = datetime.hour;
+    //     mm = datetime.minute;
+    //     ss = datetime.second;
+    //     // Serial.printf("hh:%d mm:%d ss:%d\n", hh, mm, ss);
+    //     targetTime = millis() + 1000;
+    //     if (ss == 0 || initial) {
+    //         initial = 0;
+    //         tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    //         tft.setCursor (8, 60);
+    //         tft.print(__DATE__); // This uses the standard ADAFruit small font
+    //     }
+    //     tft.setTextColor(TFT_BLUE, TFT_BLACK);
+    //     tft.drawCentreString(getVoltage(), 120, 65, 1);
 
 
-        // Update digital time
-        uint8_t xpos = 6;
-        uint8_t ypos = 0;
-        if (omm != mm) { // Only redraw every minute to minimise flicker
-            // Uncomment ONE of the next 2 lines, using the ghost image demonstrates text overlay as time is drawn over it
-            tft.setTextColor(0x39C4, TFT_BLACK);  // Leave a 7 segment ghost image, comment out next line!
-            //tft.setTextColor(TFT_BLACK, TFT_BLACK); // Set font colour to black to wipe image
-            // Font 7 is to show a pseudo 7 segment display.
-            // Font 7 only contains characters [space] 0 1 2 3 4 5 6 7 8 9 0 : .
-            tft.drawString("88:88", xpos, ypos, 7); // Overwrite the text to clear it
-            tft.setTextColor(0xFBE0, TFT_BLACK); // Orange
-            omm = mm;
+    //     // Update digital time
+    //     uint8_t xpos = 6;
+    //     uint8_t ypos = 0;
+    //     if (omm != mm) { // Only redraw every minute to minimise flicker
+    //         // Uncomment ONE of the next 2 lines, using the ghost image demonstrates text overlay as time is drawn over it
+    //         tft.setTextColor(0x39C4, TFT_BLACK);  // Leave a 7 segment ghost image, comment out next line!
+    //         //tft.setTextColor(TFT_BLACK, TFT_BLACK); // Set font colour to black to wipe image
+    //         // Font 7 is to show a pseudo 7 segment display.
+    //         // Font 7 only contains characters [space] 0 1 2 3 4 5 6 7 8 9 0 : .
+    //         tft.drawString("88:88", xpos, ypos, 7); // Overwrite the text to clear it
+    //         tft.setTextColor(0xFBE0, TFT_BLACK); // Orange
+    //         omm = mm;
 
-            if (hh < 10) xpos += tft.drawChar('0', xpos, ypos, 7);
-            xpos += tft.drawNumber(hh, xpos, ypos, 7);
-            xcolon = xpos;
-            xpos += tft.drawChar(':', xpos, ypos, 7);
-            if (mm < 10) xpos += tft.drawChar('0', xpos, ypos, 7);
-            tft.drawNumber(mm, xpos, ypos, 7);
-        }
+    //         if (hh < 10) xpos += tft.drawChar('0', xpos, ypos, 7);
+    //         xpos += tft.drawNumber(hh, xpos, ypos, 7);
+    //         xcolon = xpos;
+    //         xpos += tft.drawChar(':', xpos, ypos, 7);
+    //         if (mm < 10) xpos += tft.drawChar('0', xpos, ypos, 7);
+    //         tft.drawNumber(mm, xpos, ypos, 7);
+    //     }
 
-        if (ss % 2) { // Flash the colon
-            tft.setTextColor(0x39C4, TFT_BLACK);
-            xpos += tft.drawChar(':', xcolon, ypos, 7);
-            tft.setTextColor(0xFBE0, TFT_BLACK);
-        } else {
-            tft.drawChar(':', xcolon, ypos, 7);
-        }
-    }
+    //     if (ss % 2) { // Flash the colon
+    //         tft.setTextColor(0x39C4, TFT_BLACK);
+    //         xpos += tft.drawChar(':', xcolon, ypos, 7);
+    //         tft.setTextColor(0xFBE0, TFT_BLACK);
+    //     } else {
+    //         tft.drawChar(':', xcolon, ypos, 7);
+    //     }
+    // }
 }
 
 void loop()
@@ -746,6 +761,7 @@ void loop()
     case 2:
         nocal=0;
         deinitSDCard();
+        pass = 0;
         break;
     default:
         break;
