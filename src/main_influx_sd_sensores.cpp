@@ -19,7 +19,7 @@ WiFiMulti wifiMulti;
 
 /*INFLUXDB Config*/
 // WiFi AP SSID
-#define WIFI_SSID "BURATTO"
+#define WIFI_SSID "BURATTO2"
 // WiFi password
 #define WIFI_PASSWORD "141213daviedrica"
 // InfluxDB v2 server url, e.g. https://eu-central-1-1.aws.cloud2.influxdata.com (Use: InfluxDB UI -> Load Data -> Client Libraries)
@@ -116,12 +116,16 @@ unsigned long epochTime;
 // Timer BMP variables
 unsigned long lastTimebmp = 0;
 unsigned long timerDelaybmp = 100;//250
+unsigned long lastTimesd = 0;
+unsigned long timerDelaysd = 100;//250
+unsigned long lastTimenuvem = 0;
+unsigned long timerDelaynuvem = 100;//250
+uint32_t    lasttimeSCD = 0;
 uint32_t    timerDelaySCD = 5000;
 
-SensirionI2CScd4x scd4x;
 
-	   
-				  
+SensirionI2CScd4x scd4x;
+		  
 
 void drawProgressBar(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint8_t percentage, uint16_t frameColor, uint16_t barColor);
 
@@ -329,34 +333,9 @@ bool setupMAX30105(void)
 
 void loopMAX30105(void)
 {
-    //write sd
-    if ((millis() - lastTimebmp) > timerDelaybmp) { //reading every 250ms
-    tseconds = millis();
-
-    //scd41
-    uint16_t error;
-    char errorMessage[256];
-
-    if (targetTimescd < millis()) {
-    // Read Measurement
-    uint16_t co2;
-    float temperature;
-    float humidity;
-    error = scd4x.readMeasurement(co2, temperature, humidity);
-    if (error) {
-        Serial.print("Error trying to execute readMeasurement(): ");
-        errorToString(error, errorMessage, 256);
-        Serial.println(errorMessage);
-    } else if (co2 == 0) {
-        Serial.println("Invalid sample detected, skipping.");
-    } else {
-        Serial.print("Co2:");
-        Serial.print(co2);
-
-    }
-        targetTimescd += 5000;
-    }
-   
+    /////inicio loop max32664////
+    if ((millis() - lastTimebmp) > timerDelaybmp) { //reading every 100ms
+    
 	///get MAX32664 reading 
     uint8_t num_samples = MAX32664.readSamples();
 	if(num_samples==0) Serial.println("MAX32664 - No samples to read");
@@ -366,7 +345,24 @@ void loopMAX30105(void)
 		heart = MAX32664.max32664Output.hr;
 		oxig = MAX32664.max32664Output.spo2;  	
     }
-	  
+	
+	lastTimebmp = millis();
+    }
+    /////fim loop max32664////
+
+
+    /////inicio loop scd41////
+
+    /////fim loop scd41////
+
+
+    /////inicio loop bmp280////
+
+    /////fim loop bmp280////
+
+
+    /////inicio loop cartaosd////
+    if ((millis() - lastTimebmp) > timerDelaysd) { 
 
     dataMessage = String(sensor.getTime()) + ";" + String(systol) +";"+ String(diastol) +";"+ String(heart) +";"+ String(oxig) + ";" + String(co2) + "\r\n";
     //Append the data to file
@@ -375,7 +371,26 @@ void loopMAX30105(void)
     myFile.print(dataMessage.c_str());
 	myFile.flush();		
 	lastTimebmp = millis();
-    }//end write
+    }
+    /////fim loop cartaosd////
+
+    /////inicio loop nuvem////
+    if ((millis() - lastTimebmp) > timerDelaynuvem) { 
+
+   	
+	lastTimebmp = millis();
+    }
+    /////fim loop nuvem////
+
+    /////inicio loop display////
+    
+    /////fim loop display////
+
+
+
+
+
+
 	
 //exibe as informacoes coletadas
     if (targetTime1 < millis()) {
@@ -393,32 +408,7 @@ void loopMAX30105(void)
         snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", MAX32664.max32664Output.spo2);
         //snprintf(buff, sizeof(buff), "Oxigenacao= %.2f %", oxig);
         tft.drawString(buff, 0, 60);
-        /*INFLUXDB*/
-        // Clear fields for reusing the point. Tags will remain untouched
-        sensor.clearFields();
-
-        // Store measured value into point
-        // Report RSSI of currently connected network
-        sensor.addField("Sistolica", systol);                              // Store measured value into point
-        sensor.addField("Diastolica", diastol);                                // Store measured value into point
-        sensor.addField("Freq. Cardiaca", heart);                              // Store measured value into point
-        sensor.addField("Oxigenacao", oxig);                                // Store measured value into point
         
-        // Print what are we exactly writing
-        Serial.print("Writing: ");
-        Serial.println(sensor.toLineProtocol());
-
-        // Check WiFi connection and reconnect if needed
-        if (wifiMulti.run() != WL_CONNECTED) {
-            Serial.println("Wifi connection lost");
-        }
-
-        // Write point
-        if (!client.writePoint(sensor)) {
-            Serial.print("InfluxDB write failed: ");
-            Serial.println(client.getLastErrorMessage());
-        }
-        /**********/
         targetTime1 += 250;
 												  
 
